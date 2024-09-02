@@ -4,15 +4,20 @@ import java.sql.*;
  */
 public class Database {
     public static void main(String[] args) {
-        String url = "jdbc:postgresql://localhost:5432/mowdata";
+        String url = "jdbc:postgresql://localhost:5432/test";
         String user = "postgres";
         String pass = "Diamond2004";
         Connection con = null;
+
         try{
             con = DriverManager.getConnection(url, user, pass);
+            System.out.println("creating tables");
             createTables(con);
+            System.out.println("adding samples");
+            addSampleRows(con);
+
         } catch (SQLException e) {
-            System.out.println("UH OH! ERROR: \n" + e);
+            System.out.println("Uh oh! Error found:\n" + e);
         }
         finally {
             try{
@@ -27,7 +32,7 @@ public class Database {
     private static void createTables(Connection con) {
         Statement st = null;
 
-        String createClients = """
+        String sql = """
                 CREATE TABLE clients(
                 	id SERIAL PRIMARY KEY,
                 	first_name VARCHAR(50) NOT NULL,
@@ -35,27 +40,27 @@ public class Database {
                 	phone VARCHAR(10) NOT NULL,
                 	email VARCHAR(50) NOT NULL,
                  	CHECK (length(phone) = 10)
-                );""";
-        String createCities = """
-                CREATE TABLE cities(
-                	id SERIAL PRIMARY KEY,
-                	name VARCHAR(50) NOT NULL,
-                	zip VARCHAR(5) NOT NULL,
-                	state_id INTEGER NOT NULL,
-                	CHECK (length(zip) = 5),
-                	FOREIGN KEY (client_id)
-	                    REFERENCES clients(id)
-	                    ON DELETE RESTRICT
-	                    ON UPDATE CASCADE
-                );""";
-        String createStates = """
+                );
+                                
                 CREATE TABLE states(
                 	id SERIAL PRIMARY KEY,
                 	abbreviation VARCHAR(2) NOT NULL,
                 	name VARCHAR(50) NOT NULL,
                 	CHECK (length(abbreviation) = 2)
-                );""";
-        String createProperties = """
+                );
+                                
+                CREATE TABLE cities(
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(50) NOT NULL,
+                    zip VARCHAR(5) NOT NULL,
+                    state_id INTEGER NOT NULL,
+                    CHECK (length(zip) = 5),
+                    FOREIGN KEY (state_id)
+                        REFERENCES states(id)
+                        ON DELETE RESTRICT
+                        ON UPDATE CASCADE
+                );
+                                
                 CREATE TABLE properties(
                 	id SERIAL PRIMARY KEY,
                 	client_id INTEGER NOT NULL,
@@ -68,9 +73,9 @@ public class Database {
                 	FOREIGN KEY (city_id)
                 		REFERENCES cities(id)
                 		ON DELETE CASCADE
-                		ON UPDATE CASCADE,
-                );""";
-        String createServices = """
+                		ON UPDATE CASCADE
+                );
+                                
                 CREATE TABLE services(
                 	id SERIAL PRIMARY KEY,
                 	property_id INTEGER NOT NULL,
@@ -94,23 +99,9 @@ public class Database {
 
         try{
             st = con.createStatement();
-            int successful = 0;
-
-            // creates all tables
-            successful += st.executeUpdate(createStates);
-            successful += st.executeUpdate(createCities);
-            successful += st.executeUpdate(createClients);
-            successful += st.executeUpdate(createProperties);
-            successful += st.executeUpdate(createServices);
-
-            if (successful == 5){
-                System.out.println("All tables successfully created. Populating states table with standard data.");
-
-                populateStatesTable(st);
-            }
-            else {
-                System.out.println("Something went wrong, not all tables added.");
-            }
+            st.executeUpdate(sql);
+            System.out.println("Successfully added tables.");
+            populateStatesTable(st);
         } catch (SQLException e) {
             System.out.println("Uh oh! Error found:\n" + e);
         }
@@ -128,6 +119,7 @@ public class Database {
             System.out.println("Uh oh! Something went wrong when closing a statement:\n" + e);
         }
     }
+
     private static void populateStatesTable(Statement st) {
         String[][] statesList = { {"AL", "Alabama"}, {"AK", "Alaska"}, {"AZ", "Arizona"}, {"AR", "Arkansas"},
                 {"CA", "California"}, {"CO", "Colorado"}, {"CT", "Connecticut"}, {"DE", "Delaware"}, {"FL", "Florida"},
@@ -155,12 +147,7 @@ public class Database {
             }
 
             int added = st.executeUpdate(sql);
-            if (added == 1){
-                System.out.println("Successfully added states data.");
-            }
-            else{
-                System.out.println("Uh oh! Something went wrong when adding states.");
-            }
+            System.out.println("Successfully added states data.");
         } catch (SQLException e) {
             System.out.println("Uh oh! Error found:\n" + e);
         }
@@ -171,29 +158,24 @@ public class Database {
      * @param con Connection to be used for query
      */
     private static void addSampleRows(Connection con){
-        String sampleClients = """
+        Statement st = null;
+        String sql = """
                 INSERT INTO clients (first_name, last_name, phone, email)
                 VALUES
                 	('luis', 'jaco', '1234567890', 'luisjaco@fake.com'), --id 1
                 	('jim', 'bob', '8888888888', 'jimbob@guy.com'); --id 2
-                """;
-
-        String sampleCities = """	
+                
                 INSERT INTO cities (name, zip, state_id)
                 VALUES
                 	('hicksville', 11801, 32), --id 1
-                	('levittown', 11756, 32); --id 2
-                """;
-
-        String sampleProperties = """	
+                	('levittown', 11756, 32);
+                
                 INSERT INTO properties (client_id, address, city_id)
                 VALUES
                 	(1, '57 apple ln', 1), --id 1
-                	(1, '38 orange rd', 2), --id 2
-                	(2, '58 apple ln', 1); --id 3
-                """;
-
-        String sampleServices = """   
+                	(1, '38 orange rd', 2),
+                	(2, '58 apple ln', 1);
+                
                 INSERT INTO services (property_id, service_date, service_cost,
                 					 mow, leaf_blow, seed,
                 					 fertilizer, mulch, remove_tree,
@@ -210,5 +192,16 @@ public class Database {
                 	true, false, false,
                 	false, false, false,
                 	null);""";
+
+        try {
+            st = con.createStatement();
+
+            st.executeUpdate(sql);
+            System.out.println("Successfully added sample data.");
+        } catch (SQLException e) {
+            System.out.println("Uh oh! Error found:\n" + e);
+        } finally {
+            closeStatement(st);
+        }
     }
 }
