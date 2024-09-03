@@ -24,25 +24,36 @@ public class Menu {
         [0] Exit.
         
         input:""");
-        choice = collectInt(0,1);
+        choice = collectInt(0,1, input);
 
         switch (choice){
             case 1 -> {
-                server = new Server();
-                run();
+                this.server = new Server();
+                if (server.establishConnection()){
+                    run();
+                } else {
+                    exit();
+                }
             }
             case 0 -> {
-                exit();
+                System.out.println(mowdata);
+                System.out.println("Thank you for using MowData.");
+                input.close();
             }
         }
     }
     private void exit(){
+        if (server != null && server.verifyConnection()){
+            server.closeConnection();
+        }
+        else {
+            System.out.println("[!] No valid connection found, therefore no connection was closed.");
+        }
         System.out.println(mowdata);
         System.out.println("Thank you for using MowData.");
-        //TODO close server as well once that is created.
         input.close();
     }
-    private int collectInt(int minNum, int maxNum){
+    public static int collectInt(int minNum, int maxNum, Scanner input){
         int result;
         while (true){
             try{
@@ -50,39 +61,36 @@ public class Menu {
                 input.nextLine();
             }
             catch (Exception e){
-                System.out.print("[!] Please input an integer:\n\nNew attempt:");
+                System.out.print("[!] Please input an integer:");
                 input.nextLine();
                 continue;
             }
 
             if ((result > maxNum) || (result < minNum)){
-                System.out.print("[!] Please input a valid number.\n\nNew attempt:");
+                System.out.print("[!] Invalid value found. Please input a valid number:");
             }
             else {
-                System.out.println();
                 return result;
             }
         }
     }
-    private double collectDouble(double minNum, double maxNum){
+    public static double collectDouble(double minNum, double maxNum, Scanner input){
         double result;
         while (true){
-
             try{
-                result = this.input.nextDouble();
-                this.input.nextLine();
+                result = input.nextDouble();
+                input.nextLine();
             }
             catch (Exception e){
-                System.out.print("[!] Please input a double:\n\nNew attempt:");
-                this.input.nextLine();
+                System.out.print("[!] Please input a double:");
+                input.nextLine();
                 continue;
             }
 
             if ((result > maxNum) || (result < minNum)){
-                System.out.print("[!] Please input a valid number.\n\nNew attempt:");
+                System.out.print("[!] Invalid value found. Please input a valid number:");
             }
             else {
-                System.out.println();
                 return result;
             }
         }
@@ -104,7 +112,7 @@ public class Menu {
                 [0] Exit.
                 
                 input:""");
-        choice = collectInt(0,2);
+        choice = collectInt(0,2, input);
         switch (choice){
             case 2 -> {
                 //TODO view menus
@@ -116,7 +124,6 @@ public class Menu {
                 return false;
             }
         }
-
         //Keep the menu running if user does not explicitly choose to exit.
         return true;
     }
