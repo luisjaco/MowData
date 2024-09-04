@@ -1,11 +1,12 @@
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.Scanner;
 /**
  * The server class is used to handle and control all queries and actions regarding a PostgreSQL server and database.
  */
 public class Server {
     private Connection connection;
-    private Scanner input;
+    private final Scanner input;
 
     /**
      * Initializes a Server instance. A Server instance must run the establishConnection method to be functional.
@@ -76,6 +77,238 @@ public class Server {
         } catch (SQLException e) {
             System.out.println("[!] An error occurred while verifying the status of the servers connection:\n" + e);
             return false;
+        }
+    }
+
+    /**
+     * Will print n rows of the services table as standard, sorted by property, or sorted by date.
+     * @param mode Determines sorting mode. "all" for no sorting, "property" for sorted by property, and "date" for sorted
+     * by date.
+     * @param n Number of rows to display, -1 for all rows.
+     */
+    public void viewServices(String mode, int n){
+        if (!verifyConnection()) return;
+
+        /*
+        Table data will return in the format of:
+        (row id, column 0) | service_id (column 1) | property_id (column 2)...
+         */
+        int counter = 0;
+        Statement st = null;
+        String sql = """
+                SELECT
+                	services.id as service_id, --id 1
+                	property_id,
+                	properties.address,
+                	cities.name,
+                	cities.zip,
+                	states.abbreviation,
+                	service_date,
+                	service_cost,
+                	mow, --id 9
+                	leaf_blow,
+                	seed,
+                	fertilizer,
+                	mulch,
+                	remove_tree,
+                	trim_tree,
+                	power_wash,
+                	snow_plow, --id 17
+                	notes
+                FROM services
+                JOIN properties
+                ON property_id = properties.id
+                JOIN cities
+                ON properties.city_id = cities.id
+                JOIN states
+                ON cities.state_id = states.id""";
+        switch (mode) {
+            case "all" -> {
+                sql += ";";
+            }
+            case "property" -> {
+                sql += "\nORDER BY properties.id ASC;";
+            }
+            case "date" -> {
+                sql += "\nORDER BY service_date DESC;";
+            }
+            default -> {
+                System.out.println("Invalid mode given. Defaulting to \"all\".");
+                sql += ";";
+            }
+        }
+        try {
+            st = connection.createStatement();
+            ResultSet rs = st.executeQuery(sql);
+            System.out.println("[!] Now displaying service history:");
+            while (rs.next() && (counter < n || n == -1)){
+                //Convert boolean values to strings which say YES or NO. Booleans are from column id's 9-17.
+                ArrayList<String> boolWords = new ArrayList<>();
+                for (int i=9; i <= 17; i++){
+                    boolWords.add(rs.getBoolean(i) ? "YES" : "NO ");
+                }
+                System.out.printf("""
+                        ~~Service at [%s, %s, %s %d] (id #%d) on %s~~
+                        mow..........%s |   leaf blow....%s |   seed...........%s
+                        fertilizer...%s |   mulch........%s |   tree removal...%s
+                        tree trim....%s |   power wash...%s |   snow plow......%s
+                        notes: %s
+                        total cost..........................................%.2f
+                        
+                        """,
+                        rs.getString(3),
+                        rs.getString(4),
+                        rs.getString(6),
+                        rs.getInt(5),
+                        rs.getInt(2),
+                        rs.getDate(7),
+                        boolWords.get(0),
+                        boolWords.get(1),
+                        boolWords.get(2),
+                        boolWords.get(3),
+                        boolWords.get(4),
+                        boolWords.get(5),
+                        boolWords.get(6),
+                        boolWords.get(7),
+                        boolWords.get(8),
+                        rs.getString(18),
+                        rs.getDouble(8));
+                counter++;
+            }
+        } catch (SQLException e) {
+            System.out.println("[!] An error occurred while attempting to retrieve services data:\n" + e);
+        } finally {
+            closeStatement(st);
+        }
+    }
+
+    /**
+     * Will print n rows of the properties table as standard, sorted by city, or sorted by client.
+     * @param mode Determines sorting mode. "all" for no sorting, "city" for sorted by city, "client" for sorted by client.
+     * @param n Number of rows to display, -1 for all rows.
+     */
+    public void viewProperties(String mode, int n){
+        if (!verifyConnection()) return;
+
+        /*
+        Table will return in form of:
+        (row id, id 0) | property_id (id 1) | client_id (id 2) ...
+         */
+        int counter = 0;
+        Statement st = null;
+        String sql = """
+                SELECT
+                	properties.id as property_id, --id 1
+                	client_id,
+                	clients.first_name,
+                	clients.last_name,
+                	address,
+                	city_id,
+                	cities.name,
+                	cities.zip,
+                	states.abbreviation
+                FROM properties
+                JOIN clients
+                ON client_id = clients.id
+                JOIN cities
+                ON city_id = cities.id
+                JOIN states
+                ON cities.state_id = states.id""";
+        switch (mode){
+            case "all" -> {
+                sql += ";";
+            }
+            case "city" -> {
+                sql += "\nORDER BY city_id ASC;";
+            }
+            case "client" -> {
+                sql += "\nORDER BY client_id ASC;";
+            }
+            default -> {
+                System.out.println("Invalid mode given. Defaulting to \"all\".");
+                sql += ";";
+            }
+        }
+        try {
+            st = connection.createStatement();
+            ResultSet rs = st.executeQuery(sql);
+            while (rs.next() && (counter < n || n == -1)){
+                System.out.printf("""
+                        ~~Property id #%d~~
+                        %s, %s (id #%d), %s %d
+                        Owner: %s %s (id #%d)
+                        
+                        """,
+                        rs.getInt(1),
+                        rs.getString(5),
+                        rs.getString(7),
+                        rs.getInt(6),
+                        rs.getString(9),
+                        rs.getInt(8),
+                        rs.getString(3),
+                        rs.getString(4),
+                        rs.getInt(2));
+                counter++;
+            }
+        } catch (SQLException e) {
+            System.out.println("[!] Error occurred when attempting to retrieve properties data:\n" + e);
+        } finally {
+            closeStatement(st);
+        }
+    }
+
+    /**
+     * TODO this, fix displays.
+     * @param mode
+     * @param n
+     */
+    public void viewCities(String mode, int n){
+        if (!verifyConnection()) return;
+
+        int counter = 0;
+        Statement st = null;
+        String sql = """
+                SELECT\s
+                	cities.id as city_id, --id 1
+                	cities.name,
+                	zip,
+                	states.id as state_id,
+                	states.name
+                FROM cities
+                JOIN states
+                ON cities.state_id=states.id""";
+        switch (mode){
+            case "all" -> {
+                sql += ";";
+            }
+            case "state" -> {
+                sql += "\nORDER BY state_id;";
+            }
+            default -> {
+                System.out.println("Invalid mode given, defaulting to \"all\".");
+                sql += ";";
+            }
+        }
+        try {
+            st = connection.createStatement();
+            ResultSet rs = st.executeQuery(sql);
+            while (rs.next() && (counter < n || n == -1)){
+                System.out.printf("""
+                        ~~CITY ID#%d~~
+                        city: %s | state: %s [ID#%d] | zip: %d
+                        
+                        """,
+                        rs.getInt(1),
+                        rs.getString(2),
+                        rs.getString(5),
+                        rs.getInt(4),
+                        rs.getInt(3));
+                counter++;
+            }
+        } catch (SQLException e) {
+            System.out.println("[!] Error found when attempting to retrieve cities data:\n" + e);
+        } finally {
+            closeStatement(st);
         }
     }
     private void closeStatement(Statement st){
@@ -202,18 +435,18 @@ public class Server {
     private void insertStates() {
         Statement st = null;
         StringBuilder sql = new StringBuilder();
-        String[][] statesList = { {"AL", "Alabama"}, {"AK", "Alaska"}, {"AZ", "Arizona"}, {"AR", "Arkansas"},
-                {"CA", "California"}, {"CO", "Colorado"}, {"CT", "Connecticut"}, {"DE", "Delaware"}, {"FL", "Florida"},
-                {"GA", "Georgia"}, {"HI", "Hawaii"}, {"ID", "Idaho"}, {"IL", "Illinois"}, {"IN", "Indiana"},
-                {"IA", "Iowa"}, {"KS", "Kansas"}, {"KY", "Kentucky"}, {"LA", "Louisiana"}, {"ME", "Maine"},
-                {"MD", "Maryland"}, {"MA", "Massachusetts"}, {"MI", "Michigan"}, {"MN", "Minnesota"},
-                {"MS", "Mississippi"}, {"MO", "Missouri"}, {"MT", "Montana"}, {"NE", "Nebraska"}, {"NV", "Nevada"},
-                {"NH", "New Hampshire"}, {"NJ", "New Jersey"}, {"NM", "New Mexico"}, {"NY", "New York"},
-                {"NC", "North Carolina"}, {"ND", "North Dakota"}, {"OH", "Ohio"}, {"OK", "Oklahoma"},
-                {"OR", "Oregon"}, {"PA", "Pennsylvania"}, {"RI", "Rhode Island"}, {"SC", "South Carolina"},
-                {"SD", "South Dakota"}, {"TN", "Tennessee"}, {"TX", "Texas"}, {"UT", "Utah"}, {"VT", "Vermont"},
-                {"VA", "Virginia"}, {"WA", "Washington"}, {"WV", "West Virginia"}, {"WI", "Wisconsin"}, {"WY", "Wyoming"}
-        };
+        String[][] statesList = {
+                {"AL", "alabama"}, {"AK", "alaska"}, {"AZ", "arizona"}, {"AR", "arkansas"},
+                {"CA", "california"}, {"CO", "colorado"}, {"CT", "connecticut"}, {"DE", "delaware"}, {"FL", "florida"},
+                {"GA", "georgia"}, {"HI", "hawaii"}, {"ID", "idaho"}, {"IL", "illinois"}, {"IN", "indiana"},
+                {"IA", "iowa"}, {"KS", "kansas"}, {"KY", "kentucky"}, {"LA", "louisiana"}, {"ME", "maine"},
+                {"MD", "maryland"}, {"MA", "massachusetts"}, {"MI", "michigan"}, {"MN", "minnesota"},
+                {"MS", "mississippi"}, {"MO", "missouri"}, {"MT", "montana"}, {"NE", "nebraska"}, {"NV", "nevada"},
+                {"NH", "new hampshire"}, {"NJ", "new jersey"}, {"NM", "new mexico"}, {"NY", "new york"},
+                {"NC", "north carolina"}, {"ND", "north dakota"}, {"OH", "ohio"}, {"OK", "oklahoma"},
+                {"OR", "oregon"}, {"PA", "pennsylvania"}, {"RI", "rhode island"}, {"SC", "south carolina"},
+                {"SD", "south dakota"}, {"TN", "tennessee"}, {"TX", "texas"}, {"UT", "utah"}, {"VT", "vermont"},
+                {"VA", "virginia"}, {"WA", "washington"}, {"WV", "west virginia"}, {"WI", "wisconsin"}, {"WY", "wyoming"} };
         for (String[] strings : statesList) {
             sql.append("""
                         INSERT INTO states (abbreviation, name)
@@ -275,4 +508,5 @@ public class Server {
             closeStatement(st);
         }
     }
+
 }

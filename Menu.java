@@ -24,7 +24,7 @@ public class Menu {
         [0] Exit.
         
         input:""");
-        choice = collectInt(0,1, input);
+        choice = collectInt(0,1);
 
         switch (choice){
             case 1 -> {
@@ -74,6 +74,27 @@ public class Menu {
             }
         }
     }
+    private int collectInt(int minNum, int maxNum){
+        int result;
+        while (true){
+            try{
+                result = input.nextInt();
+                input.nextLine();
+            }
+            catch (Exception e){
+                System.out.print("[!] Please input an integer:");
+                input.nextLine();
+                continue;
+            }
+
+            if ((result > maxNum) || (result < minNum)){
+                System.out.print("[!] Invalid value found. Please input a valid number:");
+            }
+            else {
+                return result;
+            }
+        }
+    }
     public static double collectDouble(double minNum, double maxNum, Scanner input){
         double result;
         while (true){
@@ -98,7 +119,7 @@ public class Menu {
     private void run(){
         while (mainMenu()){
             //Runs as long as mainMenu is returning true. (until user decides to exit)
-            System.out.println();
+            System.out.println("~~ ~~ ~~");
         }
         exit();
     }
@@ -112,10 +133,10 @@ public class Menu {
                 [0] Exit.
                 
                 input:""");
-        choice = collectInt(0,2, input);
+        choice = collectInt(0,2);
         switch (choice){
             case 2 -> {
-                //TODO view menus
+                viewMenu();
             }
             case 1 -> {
                 //TODO add menus
@@ -127,5 +148,120 @@ public class Menu {
         //Keep the menu running if user does not explicitly choose to exit.
         return true;
     }
-
+    private void viewMenu(){
+        int choice;
+        System.out.print("""
+                [VIEW]
+                Please choose an action:
+                
+                [4] View service history.
+                [3] View properties.
+                [2] View cities.
+                [1] View clients.
+                [0] Return.
+                
+                input:""");
+        choice = collectInt(0,4);
+        switch (choice) {
+            case 4 -> {
+                viewServicesMenu();
+            }
+            case 3 -> {
+                viewPropertiesMenu();
+            }
+            case 2 -> {
+                viewCitiesMenu();
+            }
+            case 1 -> {
+                //TODO clients menu
+            }
+            case 0 -> {
+                //Do nothing. Return to mainMenu.
+            }
+        }
+    }
+    private void viewServicesMenu(){
+        int choice;
+        System.out.print("""
+                [VIEW SERVICES]
+                Please choose an action:
+                
+                [3] View all.
+                [2] View sorted by property.
+                [1] View sorted by date.
+                [0] Return.
+                
+                input:""");
+        choice = collectInt(0, 3);
+        switch (choice){
+            case 3 -> {
+                server.viewServices("all", promptForRowCount());
+            }
+            case 2 -> {
+                server.viewServices("property", promptForRowCount());
+            }
+            case 1 -> {
+                server.viewServices("date", promptForRowCount());
+            }
+            case 0 -> {
+                //Do nothing. Return to mainMenu.
+            }
+        }
+    }
+    private void viewPropertiesMenu(){
+        int choice;
+        System.out.print("""
+                [VIEW PROPERTIES]
+                Please choose an action:
+                
+                [3] View all.
+                [2] View sorted by city.
+                [1] View sorted by client.
+                [0] Return.
+                
+                input:""");
+        choice = collectInt(0,3);
+        switch (choice){
+            case 3 -> {
+                server.viewProperties("all", promptForRowCount());
+            }
+            case 2 -> {
+                server.viewProperties("city", promptForRowCount());
+            }
+            case 1 -> {
+                server.viewProperties("client", promptForRowCount());
+            }
+            case 0 -> {
+                //Do nothing. Return to mainMenu.
+            }
+        }
+    }
+    private void viewCitiesMenu(){
+        int choice;
+        System.out.print("""
+                [VIEW CITIES]
+                Please choose an action:
+                
+                [2] View all.
+                [1] View sorted by state.
+                [0] Return.
+                
+                input:""");
+        choice = collectInt(0,2);
+        switch (choice){
+            case 2 -> {
+                server.viewCities("all", promptForRowCount());
+            }
+            case 1 -> {
+                server.viewCities("state", promptForRowCount());
+            }
+            case 0 -> {
+                //Do nothing. Return to mainMenu.
+            }
+        }
+    }
+    private int promptForRowCount(){
+        System.out.print("Please enter how many rows you would like to see (-1 for all rows):");
+        return collectInt(-1, Integer.MAX_VALUE);
+    }
 }
