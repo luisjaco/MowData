@@ -82,11 +82,11 @@ public class Server {
 
     /**
      * Will print n rows of the services table as standard, sorted by property, or sorted by date.
-     * @param mode Determines sorting mode. "all" for no sorting, "property" for sorted by property, and "date" for sorted
-     * by date.
+     * @param sortingMode "all" for no sorting, "property" for sorted by property, and "date" for sorted
+     * by date. Default is "all".
      * @param n Number of rows to display, -1 for all rows.
      */
-    public void viewServices(String mode, int n){
+    public void viewServices(String sortingMode, int n){
         if (!verifyConnection()) return;
 
         /*
@@ -122,7 +122,7 @@ public class Server {
                 ON properties.city_id = cities.id
                 JOIN states
                 ON cities.state_id = states.id""";
-        switch (mode) {
+        switch (sortingMode) {
             case "all" -> {
                 sql += ";";
             }
@@ -133,7 +133,7 @@ public class Server {
                 sql += "\nORDER BY service_date DESC;";
             }
             default -> {
-                System.out.println("Invalid mode given. Defaulting to \"all\".");
+                System.out.println("Invalid sortingMode given. Defaulting to \"all\".");
                 sql += ";";
             }
         }
@@ -148,14 +148,16 @@ public class Server {
                     boolWords.add(rs.getBoolean(i) ? "YES" : "NO ");
                 }
                 System.out.printf("""
-                        ~~Service at [%s, %s, %s %d] (id #%d) on %s~~
-                        mow..........%s |   leaf blow....%s |   seed...........%s
-                        fertilizer...%s |   mulch........%s |   tree removal...%s
-                        tree trim....%s |   power wash...%s |   snow plow......%s
-                        notes: %s
-                        total cost..........................................%.2f
                         
+                        [SERVICE ID#%d]
+                        SERVICE AT %s, %s, %s %d [PROPERTY ID#%d] ON %s
+                        MOW..........%s |   LEAF BLOW....%s |   SEED...........%s
+                        FERTILIZER...%s |   MULCH........%s |   TREE REMOVAL...%s
+                        TREE TRIM....%s |   POWER WASH...%s |   SNOW PLOW......%s
+                        NOTES: %s
+                        COST......................$%.2f
                         """,
+                        rs.getInt(1),
                         rs.getString(3),
                         rs.getString(4),
                         rs.getString(6),
@@ -184,10 +186,10 @@ public class Server {
 
     /**
      * Will print n rows of the properties table as standard, sorted by city, or sorted by client.
-     * @param mode Determines sorting mode. "all" for no sorting, "city" for sorted by city, "client" for sorted by client.
+     * @param sortingMode "all" for no sorting, "city" for sorted by city, "client" for sorted by client. Default is "all".
      * @param n Number of rows to display, -1 for all rows.
      */
-    public void viewProperties(String mode, int n){
+    public void viewProperties(String sortingMode, int n){
         if (!verifyConnection()) return;
 
         /*
@@ -214,7 +216,7 @@ public class Server {
                 ON city_id = cities.id
                 JOIN states
                 ON cities.state_id = states.id""";
-        switch (mode){
+        switch (sortingMode){
             case "all" -> {
                 sql += ";";
             }
@@ -225,26 +227,27 @@ public class Server {
                 sql += "\nORDER BY client_id ASC;";
             }
             default -> {
-                System.out.println("Invalid mode given. Defaulting to \"all\".");
+                System.out.println("Invalid sortingMode given. Defaulting to \"all\".");
                 sql += ";";
             }
         }
         try {
             st = connection.createStatement();
             ResultSet rs = st.executeQuery(sql);
+            System.out.println("[!] Now displaying properties data:");
             while (rs.next() && (counter < n || n == -1)){
                 System.out.printf("""
-                        ~~Property id #%d~~
-                        %s, %s (id #%d), %s %d
-                        Owner: %s %s (id #%d)
                         
+                        [PROPERTY ID#%d]
+                        ADDRESS: %s | CITY: %s %d [CITY ID#%d] | STATE: %s
+                        OWNER: %s %s [OWNER ID#%d]
                         """,
                         rs.getInt(1),
                         rs.getString(5),
                         rs.getString(7),
+                        rs.getInt(8),
                         rs.getInt(6),
                         rs.getString(9),
-                        rs.getInt(8),
                         rs.getString(3),
                         rs.getString(4),
                         rs.getInt(2));
@@ -258,13 +261,17 @@ public class Server {
     }
 
     /**
-     * TODO this, fix displays.
-     * @param mode
-     * @param n
+     * Will print n rows of the cities table as standard or sorted by state.
+     * @param sortingMode "all" for no sorting, "state" for sorted by state. Default is "all".
+     * @param n Number of rows to display, -1 for all rows.
      */
-    public void viewCities(String mode, int n){
+    public void viewCities(String sortingMode, int n){
         if (!verifyConnection()) return;
 
+        /*
+        Table will look like:
+        (row id #0) | city_id (#1) | name (#2)...
+         */
         int counter = 0;
         Statement st = null;
         String sql = """
@@ -277,7 +284,7 @@ public class Server {
                 FROM cities
                 JOIN states
                 ON cities.state_id=states.id""";
-        switch (mode){
+        switch (sortingMode){
             case "all" -> {
                 sql += ";";
             }
@@ -285,18 +292,19 @@ public class Server {
                 sql += "\nORDER BY state_id;";
             }
             default -> {
-                System.out.println("Invalid mode given, defaulting to \"all\".");
+                System.out.println("Invalid sortingMode given, defaulting to \"all\".");
                 sql += ";";
             }
         }
         try {
             st = connection.createStatement();
             ResultSet rs = st.executeQuery(sql);
+            System.out.println("[!] Now displaying cities data:");
             while (rs.next() && (counter < n || n == -1)){
                 System.out.printf("""
-                        ~~CITY ID#%d~~
-                        city: %s | state: %s [ID#%d] | zip: %d
                         
+                        [CITY ID#%d]
+                        CITY: %s | STATE: %s [STATE ID#%d] | ZIP: %d
                         """,
                         rs.getInt(1),
                         rs.getString(2),
@@ -310,6 +318,139 @@ public class Server {
         } finally {
             closeStatement(st);
         }
+    }
+
+    /**
+     * Will print n rows of the clients table as standard or sorted by name.
+     * @param sortingMode "all" for no sorting, "name" for sorted by name. Default is "all".
+     * @param n Number of rows to display. -1 for all rows.
+     */
+    public void viewClients(String sortingMode, int n){
+        if (!verifyConnection()) return;
+
+        /*
+        Table will return as:
+        (row id #0) | client_id (#1) | first_name (#2) | last_name (#3) | phone (#4) | email (#5)
+         */
+        int counter = 0;
+        Statement st = null;
+        String sql = "SELECT * FROM clients";
+        switch (sortingMode) {
+            case "all" -> {
+                sql += ";";
+            }
+            case "name" -> {
+                sql += "\nORDER BY first_name ASC, last_name ASC;";
+            }
+            default -> {
+                System.out.println("[!] Invalid sortingMode given. Defaulting to \"all\".");
+                sql += ";";
+            }
+        }
+        try {
+            st = connection.createStatement();
+            ResultSet rs = st.executeQuery(sql);
+            System.out.println("[!] Now displaying clients data:");
+            while (rs.next() && (counter < n || n == -1)){
+                String phoneNumber = rs.getString(4);
+                String formattedPhoneNumber = "("
+                        + phoneNumber.substring(0,3) + ") "
+                        + phoneNumber.substring(3, 6) + "-"
+                        + phoneNumber.substring(6, 10);
+                System.out.printf("""
+                        
+                        [CLIENT ID#%d]
+                        NAME: %s %s
+                        PHONE: %s
+                        EMAIL: %s
+                        """,
+                        rs.getInt(1),
+                        rs.getString(2),
+                        rs.getString(3),
+                        formattedPhoneNumber,
+                        rs.getString(5));
+                counter++;
+            }
+        } catch (SQLException e) {
+            System.out.println("[!] An error occurred while attempting to retrieve clients data:\n" + e);
+        } finally {
+            closeStatement(st);
+        }
+    }
+    public boolean verifyProperty(int id){
+        if (!verifyConnection()) return false;
+        /*
+        Table will return as:
+        (row id #0) | exists (#1)
+         */
+        boolean result = false;
+        Statement st = null;
+        String sql = """
+                SELECT EXISTS (
+                	SELECT 1
+                	FROM properties
+                	WHERE properties.id=%d
+                );""".formatted(id);
+        try {
+            st = connection.createStatement();
+            ResultSet rs = st.executeQuery(sql);
+            rs.next();
+            result =  rs.getBoolean(1);
+        } catch (SQLException e) {
+            System.out.println("[!] Something went wrong when attempting to verify the property:\n" + e);
+        } finally {
+            closeStatement(st);
+        }
+        return result;
+    }
+    public String getProperty(int id){
+        if (!verifyConnection() || !verifyProperty(id)) return "";
+
+        Statement st = null;
+        String result;
+        String sql = """
+                SELECT
+                	properties.id as property_id, --id 1
+                	client_id,
+                	clients.first_name,
+                	clients.last_name,
+                	address,
+                	city_id,
+                	cities.name,
+                	cities.zip,
+                	states.abbreviation
+                FROM properties
+                JOIN clients
+                ON client_id = clients.id
+                JOIN cities
+                ON city_id = cities.id
+                JOIN states
+                ON cities.state_id = states.id
+                WHERE properties.id=%d;""".formatted(id);
+        try {
+            st = connection.createStatement();
+            ResultSet rs = st.executeQuery(sql);
+            rs.next();
+            result = """
+                    [PROPERTY ID#%d]
+                    ADDRESS: %s | CITY: %s %d [CITY ID#%d] | STATE: %s
+                    OWNER: %s %s [OWNER ID#%d]""".formatted(
+                    rs.getInt(1),
+                    rs.getString(5),
+                    rs.getString(7),
+                    rs.getInt(8),
+                    rs.getInt(6),
+                    rs.getString(9),
+                    rs.getString(3),
+                    rs.getString(4),
+                    rs.getInt(2));
+        } catch (SQLException e) {
+            System.out.println("[!] An error occurred while attempting to retrieve a specific property's data:\n" + e);
+            result = "";
+        } finally {
+            closeStatement(st);
+        }
+        return result;
     }
     private void closeStatement(Statement st){
         try {

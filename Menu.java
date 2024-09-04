@@ -119,7 +119,7 @@ public class Menu {
     private void run(){
         while (mainMenu()){
             //Runs as long as mainMenu is returning true. (until user decides to exit)
-            System.out.println("~~ ~~ ~~");
+            System.out.println("~~+~~+~~");
         }
         exit();
     }
@@ -139,7 +139,7 @@ public class Menu {
                 viewMenu();
             }
             case 1 -> {
-                //TODO add menus
+                addMenu();
             }
             case 0 -> {
                 return false;
@@ -173,7 +173,7 @@ public class Menu {
                 viewCitiesMenu();
             }
             case 1 -> {
-                //TODO clients menu
+                viewClientsMenu();
             }
             case 0 -> {
                 //Do nothing. Return to mainMenu.
@@ -260,8 +260,95 @@ public class Menu {
             }
         }
     }
+    private void viewClientsMenu(){
+        int choice;
+        System.out.print("""
+                [VIEW CLIENTS]
+                Please choose an action:
+                
+                [2] View all.
+                [1] View sorted by name.
+                [0] Return.
+                
+                input:""");
+        choice = collectInt(0,2);
+        switch (choice) {
+            case 2 -> {
+                server.viewClients("all", promptForRowCount());
+            }
+            case 1 -> {
+                server.viewClients("name", promptForRowCount());
+            }
+            case 0 -> {
+                //Do nothing. Return to mainMenu.
+            }
+        }
+    }
     private int promptForRowCount(){
         System.out.print("Please enter how many rows you would like to see (-1 for all rows):");
         return collectInt(-1, Integer.MAX_VALUE);
+    }
+    private void addMenu(){
+        int choice;
+        System.out.print("""
+                [ADD]
+                Please choose an action:
+                
+                [4] Add service.
+                [3] Add property.
+                [2] Add city.
+                [1] Add client.
+                [0] Return.
+                
+                input:""");
+        choice = collectInt(0, 4);
+        switch (choice) {
+            case 4 -> {
+                //TODO
+            }
+            case 3 -> {
+                //TODO
+            }
+            case 2 -> {
+                //TODO
+            }
+            case 1 -> {
+                //TODO
+            }
+            case 0 -> {
+                //Do nothing. Return to mainMenu.
+            }
+        }
+    }
+    private void addServiceMenu(){
+        //Get property, if no property, prompt for property creation. first must verify if property exists.
+        int choice = 0;
+        System.out.print("""
+                [ADD SERVICE]
+                To add a service, you must input the following:
+                1. PROPERTY ID
+                2. SERVICE DATE
+                3. SERVICES DONE
+                4. COST
+                5. NOTES (optional)
+                
+                Continue?
+                [1] Yes, begin.
+                [0] No, return.
+                
+                input:""");
+
+        if (collectInt(0,1) == 0) return; //Do nothing. Return to mainMenu.
+
+        //Property
+        while (true) {
+            System.out.print("""
+                1. Enter a property id. -1 to search for properties.
+                
+                input:""");
+            int property_id = collectInt(-1, Integer.MAX_VALUE);
+            //TODO
+        }
+
     }
 }
