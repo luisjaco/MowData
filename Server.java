@@ -1,4 +1,5 @@
 import java.sql.*;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Scanner;
 /**
@@ -81,20 +82,43 @@ public class Server {
     }
 
     /**
+     * Will perform a query [view] and return the ResultSet. Handles errors.
+     * @param sql Query to perform.
+     * @param errorFrom Used in error message, to identify previous action.
+     * @return ResultSet of performed query, or null if error occurred.
+     */
+    public ResultSet performQuery(String sql, String errorFrom){
+        //Won't attempt if there is no connection
+        if (!verifyConnection()) return null;
+
+        ResultSet rs = null;
+        try {
+            Statement st = connection.createStatement();
+            rs = st.executeQuery(sql);
+            //Statement and ResultSet will close when they are done being used. (Statement must be open for ResultSet to be open).
+            return rs;
+        } catch (SQLException e) {
+            System.out.printf("[!] Error occurred while attempting to %s:\n%s", errorFrom, e);
+        }
+        return rs;
+    }
+    //TODO
+    public boolean performUpdate(String sql, String errorFrom){
+        //TODO
+        return false;
+    }
+    /**
      * Will print n rows of the services table as standard, sorted by property, or sorted by date.
      * @param sortingMode "all" for no sorting, "property" for sorted by property, and "date" for sorted
      * by date. Default is "all".
      * @param n Number of rows to display, -1 for all rows.
      */
     public void viewServices(String sortingMode, int n){
-        if (!verifyConnection()) return;
-
         /*
         Table data will return in the format of:
         (row id, column 0) | service_id (column 1) | property_id (column 2)...
          */
         int counter = 0;
-        Statement st = null;
         String sql = """
                 SELECT
                 	services.id as service_id, --id 1
@@ -122,6 +146,7 @@ public class Server {
                 ON properties.city_id = cities.id
                 JOIN states
                 ON cities.state_id = states.id""";
+        //Adjusting SQL based on sortingMode.
         switch (sortingMode) {
             case "all" -> {
                 sql += ";";
@@ -137,9 +162,11 @@ public class Server {
                 sql += ";";
             }
         }
+
+        //Processing results.
+        ResultSet rs = performQuery(sql, "view services table");
+        if (rs == null) return;
         try {
-            st = connection.createStatement();
-            ResultSet rs = st.executeQuery(sql);
             System.out.println("[!] Now displaying service history:");
             while (rs.next() && (counter < n || n == -1)){
                 //Convert boolean values to strings which say YES or NO. Booleans are from column id's 9-17.
@@ -164,23 +191,86 @@ public class Server {
                         rs.getInt(5),
                         rs.getInt(2),
                         rs.getDate(7),
-                        boolWords.get(0),
-                        boolWords.get(1),
-                        boolWords.get(2),
-                        boolWords.get(3),
-                        boolWords.get(4),
-                        boolWords.get(5),
-                        boolWords.get(6),
-                        boolWords.get(7),
-                        boolWords.get(8),
+                        boolWords.get(0), boolWords.get(1), boolWords.get(2),
+                        boolWords.get(3), boolWords.get(4), boolWords.get(5),
+                        boolWords.get(6), boolWords.get(7), boolWords.get(8),
                         rs.getString(18),
                         rs.getDouble(8));
                 counter++;
             }
+            rs.close();
         } catch (SQLException e) {
-            System.out.println("[!] An error occurred while attempting to retrieve services data:\n" + e);
-        } finally {
-            closeStatement(st);
+            //Should not occur given ResultSet is not null.
+        }
+    }
+    //TODO
+    public void addService(int propertyID, LocalDate serviceDate, boolean[] servicesDone, double serviceCost, String notes, boolean confirm){
+        if (!verifyConnection()) return;
+
+        if (notes.length() == 0) {
+            notes = "null";
+        } else {
+            notes = "'" + notes + "'";
+        }
+
+        if (servicesDone.length != 9) return;//TODO error
+
+        String sql = """
+                INSERT INTO services (property_id, service_date, service_cost,
+                					 mow, leaf_blow, seed,
+                					 fertilizer, mulch, remove_tree,
+                					 trim_tree, power_wash, snow_plow,
+                					 notes)
+                VALUES
+                	(%d, %tF, %f,
+                	%b, %b, %b,
+                	%b, %b, %b,
+                	%b, %b, %b,
+                	%s);"""
+                .formatted(propertyID,
+                        serviceDate,
+                        serviceCost,
+                        servicesDone[0],
+                        servicesDone[1],
+                        servicesDone[2],
+                        servicesDone[3],
+                        servicesDone[4],
+                        servicesDone[5],
+                        servicesDone[6],
+                        servicesDone[7],
+                        servicesDone[8],
+                        notes
+                );
+
+        if (confirm) {
+            System.out.printf("""
+                     SERVICE AT PROPERTY ID#%d ON %tF
+                     MOW..........%b |   LEAF BLOW....%b |   SEED...........%b
+                     FERTILIZER...%b |   MULCH........%b |   TREE REMOVAL...%b
+                     TREE TRIM....%b |   POWER WASH...%b |   SNOW PLOW......%b
+                     NOTES: %s
+                     COST......................$%.2f
+                     """,
+                    propertyID,
+                    serviceDate,
+                    servicesDone[0],
+                    servicesDone[1],
+                    servicesDone[2],
+                    servicesDone[3],
+                    servicesDone[4],
+                    servicesDone[5],
+                    servicesDone[6],
+                    servicesDone[7],
+                    servicesDone[8],
+                    notes,
+                    serviceCost);
+            System.out.print("""
+                    Would you like to add this service to the services table?
+                    
+                    [1] Yes.
+                    [0] No.""");
+
+            //TODO complete
         }
     }
 
@@ -190,14 +280,11 @@ public class Server {
      * @param n Number of rows to display, -1 for all rows.
      */
     public void viewProperties(String sortingMode, int n){
-        if (!verifyConnection()) return;
-
         /*
         Table will return in form of:
         (row id, id 0) | property_id (id 1) | client_id (id 2) ...
          */
         int counter = 0;
-        Statement st = null;
         String sql = """
                 SELECT
                 	properties.id as property_id, --id 1
@@ -216,6 +303,8 @@ public class Server {
                 ON city_id = cities.id
                 JOIN states
                 ON cities.state_id = states.id""";
+
+        //Changing SQL for sortingMode.
         switch (sortingMode){
             case "all" -> {
                 sql += ";";
@@ -231,9 +320,11 @@ public class Server {
                 sql += ";";
             }
         }
+
+        //Processing results.
+        ResultSet rs = performQuery(sql, "view properties table");
+        if (rs == null) return;
         try {
-            st = connection.createStatement();
-            ResultSet rs = st.executeQuery(sql);
             System.out.println("[!] Now displaying properties data:");
             while (rs.next() && (counter < n || n == -1)){
                 System.out.printf("""
@@ -253,10 +344,9 @@ public class Server {
                         rs.getInt(2));
                 counter++;
             }
-        } catch (SQLException e) {
-            System.out.println("[!] Error occurred when attempting to retrieve properties data:\n" + e);
-        } finally {
-            closeStatement(st);
+            rs.close();
+        } catch (SQLException e){
+            //Should not occur if ResultSet is not null.
         }
     }
 
@@ -266,14 +356,11 @@ public class Server {
      * @param n Number of rows to display, -1 for all rows.
      */
     public void viewCities(String sortingMode, int n){
-        if (!verifyConnection()) return;
-
         /*
         Table will look like:
         (row id #0) | city_id (#1) | name (#2)...
          */
         int counter = 0;
-        Statement st = null;
         String sql = """
                 SELECT\s
                 	cities.id as city_id, --id 1
@@ -284,6 +371,8 @@ public class Server {
                 FROM cities
                 JOIN states
                 ON cities.state_id=states.id""";
+
+        //Adjusting SQL depending on sortingMode.
         switch (sortingMode){
             case "all" -> {
                 sql += ";";
@@ -296,13 +385,15 @@ public class Server {
                 sql += ";";
             }
         }
+
+        //Processing results.
+        ResultSet rs = performQuery(sql, "view cities table");
+        if (rs == null) return;
         try {
-            st = connection.createStatement();
-            ResultSet rs = st.executeQuery(sql);
             System.out.println("[!] Now displaying cities data:");
-            while (rs.next() && (counter < n || n == -1)){
+            while (rs.next() && (counter < n || n == -1)) {
                 System.out.printf("""
-                        
+                                                
                         [CITY ID#%d]
                         CITY: %s | STATE: %s [STATE ID#%d] | ZIP: %d
                         """,
@@ -313,10 +404,9 @@ public class Server {
                         rs.getInt(3));
                 counter++;
             }
+            rs.close();
         } catch (SQLException e) {
-            System.out.println("[!] Error found when attempting to retrieve cities data:\n" + e);
-        } finally {
-            closeStatement(st);
+            //Should not occur given ResultSet is not null.
         }
     }
 
@@ -326,15 +416,14 @@ public class Server {
      * @param n Number of rows to display. -1 for all rows.
      */
     public void viewClients(String sortingMode, int n){
-        if (!verifyConnection()) return;
-
         /*
         Table will return as:
         (row id #0) | client_id (#1) | first_name (#2) | last_name (#3) | phone (#4) | email (#5)
          */
         int counter = 0;
-        Statement st = null;
         String sql = "SELECT * FROM clients";
+
+        //Adjusting SQL for sortingMode.
         switch (sortingMode) {
             case "all" -> {
                 sql += ";";
@@ -347,9 +436,11 @@ public class Server {
                 sql += ";";
             }
         }
+
+        //Processing results.
+        ResultSet rs = performQuery(sql, "view clients table");
+        if (rs == null) return;
         try {
-            st = connection.createStatement();
-            ResultSet rs = st.executeQuery(sql);
             System.out.println("[!] Now displaying clients data:");
             while (rs.next() && (counter < n || n == -1)){
                 String phoneNumber = rs.getString(4);
@@ -371,38 +462,37 @@ public class Server {
                         rs.getString(5));
                 counter++;
             }
+            rs.close();
         } catch (SQLException e) {
-            System.out.println("[!] An error occurred while attempting to retrieve clients data:\n" + e);
-        } finally {
-            closeStatement(st);
+            //Should not occur given ResultSet is not null.
         }
     }
     public boolean verifyProperty(int id){
-        if (!verifyConnection()) return false;
         /*
         Table will return as:
         (row id #0) | exists (#1)
          */
         boolean result = false;
-        Statement st = null;
         String sql = """
                 SELECT EXISTS (
                 	SELECT 1
                 	FROM properties
                 	WHERE properties.id=%d
                 );""".formatted(id);
+
+        //Processing results.
+        ResultSet rs = performQuery(sql, "verify property id");
+        if (rs == null) return false;
         try {
-            st = connection.createStatement();
-            ResultSet rs = st.executeQuery(sql);
             rs.next();
-            result =  rs.getBoolean(1);
+            result = rs.getBoolean(1);
+            rs.close();
         } catch (SQLException e) {
-            System.out.println("[!] Something went wrong when attempting to verify the property:\n" + e);
-        } finally {
-            closeStatement(st);
+            //Should not occur given ResultSet is not null.
         }
         return result;
     }
+    //TODO may drop this method
     public String getProperty(int id){
         if (!verifyConnection() || !verifyProperty(id)) return "";
 

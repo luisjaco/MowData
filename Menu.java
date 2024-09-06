@@ -1,3 +1,6 @@
+import java.time.DateTimeException;
+import java.time.LocalDate;
+import java.util.Date;
 import java.util.Scanner;
 /**
  * The Menu class will handle all the user menus.
@@ -10,7 +13,6 @@ public class Menu {
     public Menu(){
         //Does nothing.
     }
-
     public void start(){
         this.input = new Scanner(System.in);
         int choice;
@@ -42,7 +44,7 @@ public class Menu {
             }
         }
     }
-    private void exit(){
+    public void exit(){
         if (server != null && server.verifyConnection()){
             server.closeConnection();
         }
@@ -52,6 +54,27 @@ public class Menu {
         System.out.println(mowdata);
         System.out.println("Thank you for using MowData.");
         input.close();
+    }
+    public static double collectDouble(double minNum, double maxNum, Scanner input){
+        double result;
+        while (true){
+            try{
+                result = input.nextDouble();
+                input.nextLine();
+            }
+            catch (Exception e){
+                System.out.print("[!] Please input a double:");
+                input.nextLine();
+                continue;
+            }
+
+            if ((result > maxNum) || (result < minNum)){
+                System.out.print("[!] Invalid value found. Please input a valid number:");
+            }
+            else {
+                return result;
+            }
+        }
     }
     public static int collectInt(int minNum, int maxNum, Scanner input){
         int result;
@@ -95,7 +118,7 @@ public class Menu {
             }
         }
     }
-    public static double collectDouble(double minNum, double maxNum, Scanner input){
+    private double collectDouble(double minNum, double maxNum){
         double result;
         while (true){
             try{
@@ -115,6 +138,30 @@ public class Menu {
                 return result;
             }
         }
+    }
+    private LocalDate collectDate(){
+        LocalDate result;
+        while (true) {
+            String date = input.nextLine();
+            //YYYY-MM-DD
+            try {
+                if (date.length() != 10) throw new NumberFormatException();
+
+                int year = Integer.parseInt(date.substring(0,4));
+                int month = Integer.parseInt(date.substring(5,7));
+                int day = Integer.parseInt(date.substring(8,10));
+
+                result = LocalDate.of(year, month, day);
+                break;
+            }
+            catch (NumberFormatException e){
+                System.out.print("[!] Incorrect formatting found. Enter a date in the format [YYYY-MM-DD]:");
+            }
+            catch (DateTimeException e){
+                System.out.print("[!] Impossible date given. Enter a correct date in the format [YYYY-MM-DD]:");
+            }
+        }
+        return result;
     }
     private void run(){
         while (mainMenu()){
@@ -304,7 +351,7 @@ public class Menu {
         choice = collectInt(0, 4);
         switch (choice) {
             case 4 -> {
-                //TODO
+                addServiceMenu();
             }
             case 3 -> {
                 //TODO
@@ -340,15 +387,41 @@ public class Menu {
 
         if (collectInt(0,1) == 0) return; //Do nothing. Return to mainMenu.
 
-        //Property
-        while (true) {
-            System.out.print("""
-                1. Enter a property id. -1 to search for properties.
-                
-                input:""");
-            int property_id = collectInt(-1, Integer.MAX_VALUE);
-            //TODO
+        //1. Property id
+        System.out.print("1. Enter a property id:");
+        int propertyID = collectInt(0, Integer.MAX_VALUE);
+        if (!server.verifyProperty(propertyID)) {
+            System.out.println("[!] Invalid property id. Please try again.");
+            return;
         }
 
+        //2. Service date
+        System.out.print("2. Enter a service date [YYYY-MM-DD]:");
+        LocalDate serviceDate = collectDate();
+
+        //3. Services done
+        System.out.print("""
+                3. Please refer to this list:
+                MOW..........m |   LEAF BLOW....l |   SEED...........s
+                FERTILIZER...f |   MULCH........m |   TREE REMOVAL...r
+                TREE TRIM....t |   POWER WASH...w |   SNOW PLOW......p
+                
+                [!] To add services, simply type all keys of the services done, in any order:""");
+        String servicesDoneString = input.nextLine();
+        String[] comparisonList = {"m", "l", "s", "f", "m", "r", "t", "w", "p"};
+        boolean[] servicesDoneArray = new boolean[9];
+        for (int i=0; i < comparisonList.length; i++){
+            servicesDoneArray[i] = servicesDoneString.contains(comparisonList[i]);
+        }
+
+        //4. Cost
+        System.out.print("4. Enter the service cost:");
+        double serviceCost = collectDouble(0, Double.MAX_VALUE);
+
+        //5. Notes
+        System.out.print("5. Enter any notes. Leave blank for null:");
+        String notes = input.nextLine();
+
+        //TODO
     }
 }
