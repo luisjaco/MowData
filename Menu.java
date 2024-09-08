@@ -44,6 +44,22 @@ public class Menu {
             }
         }
     }
+    public void start(int port, String database, String username, String password){
+        this.input = new Scanner(System.in);
+        this.server = new Server();
+        int choice;
+        System.out.println(mowdata);
+        System.out.print("""
+        Welcome to MowData! A program designed for keeping track of client data, to be used by landscaping businesses.
+        [!] This program is designed to be used with a locally hosted PostgreSQL server.
+        """);
+
+        if (server.establishConnection(port, database, username, password)){
+            run();
+        } else {
+            exit();
+        }
+    }
     public void exit(){
         if (server != null && server.verifyConnection()){
             server.closeConnection();
@@ -166,13 +182,14 @@ public class Menu {
     private void run(){
         while (mainMenu()){
             //Runs as long as mainMenu is returning true. (until user decides to exit)
-            System.out.println("~~+~~+~~");
+            continue;
         }
         exit();
     }
     private boolean mainMenu(){
         int choice;
         System.out.print("""
+                ~~+~~+~~+~~+~~+~~+~~+~~
                 Please choose an action:
                 
                 [2] View data.
@@ -354,7 +371,7 @@ public class Menu {
                 addServiceMenu();
             }
             case 3 -> {
-                //TODO
+                addPropertyMenu();
             }
             case 2 -> {
                 //TODO
@@ -372,7 +389,7 @@ public class Menu {
         int choice = 0;
         System.out.print("""
                 [ADD SERVICE]
-                To add a service, you must input the following:
+                [!] To add a service, you must input the following:
                 1. PROPERTY ID
                 2. SERVICE DATE
                 3. SERVICES DONE
@@ -403,13 +420,14 @@ public class Menu {
         System.out.print("""
                 3. Please refer to this list:
                 MOW..........m |   LEAF BLOW....l |   SEED...........s
-                FERTILIZER...f |   MULCH........m |   TREE REMOVAL...r
+                FERTILIZER...f |   MULCH........u |   TREE REMOVAL...r
                 TREE TRIM....t |   POWER WASH...w |   SNOW PLOW......p
                 
                 [!] To add services, simply type all keys of the services done, in any order:""");
         String servicesDoneString = input.nextLine();
-        String[] comparisonList = {"m", "l", "s", "f", "m", "r", "t", "w", "p"};
+        String[] comparisonList = {"m", "l", "s", "f", "u", "r", "t", "w", "p"};
         boolean[] servicesDoneArray = new boolean[9];
+        //We will look at the input string and check for each of our set values.
         for (int i=0; i < comparisonList.length; i++){
             servicesDoneArray[i] = servicesDoneString.contains(comparisonList[i]);
         }
@@ -422,6 +440,42 @@ public class Menu {
         System.out.print("5. Enter any notes. Leave blank for null:");
         String notes = input.nextLine();
 
-        //TODO
+        server.addService(propertyID, serviceDate, servicesDoneArray, serviceCost, notes, true);
+    }
+    private void addPropertyMenu(){
+        System.out.print("""
+                [ADD PROPERTY]
+                [!] To add a property, you must input the following:
+                1. CLIENT ID
+                2. ADDRESS
+                3. CITY ID
+                
+                Continue?
+                [1] Yes, begin.
+                [0] No, return.
+                
+                input:""");
+
+        if (collectInt(0, 1) == 0) return; //User exited.
+
+        //Gathering inputs. Verify client and city IDs.
+        System.out.print("1. Enter client id:");
+        int clientID = collectInt(0, Integer.MAX_VALUE);
+        if (!server.verifyClient(clientID)) {
+            System.out.println("[!] Invalid client id. Please try again.");
+            return;
+        }
+
+        System.out.print("2. Enter address (EX: 123 apple road):");
+        String address = input.nextLine().toLowerCase();
+
+        System.out.print("3. Enter city id:");
+        int cityID = collectInt(0, Integer.MAX_VALUE);
+        if (!server.verifyCity(cityID)) {
+            System.out.println("[!] Invalid city id. Please try again.");
+            return;
+        }
+
+        server.addProperty(clientID, address, cityID, true);
     }
 }

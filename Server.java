@@ -17,11 +17,12 @@ public class Server {
     }
 
     /**
-     * Prompt user for inputs to establish a connection to a locally hosted PostgreSQL server. Once connection established,
-     * ask the user if they require standard tables or sample data to be inserted.
-     * @return false if user decides to quit. true if connection is successful.
+     * Establishes connection to server. Will prompt user for required values to establish connection. If the required tables are not
+     * present the user will be prompted to add tables.
+     * @return Whether connection was established.
      */
     public boolean establishConnection(){
+        //Retrieve inputs from user until user puts a valid connection or exits.
         while (true){
             try {
                 System.out.print("[1] Input the port number for your locally hosted server:");
@@ -39,7 +40,7 @@ public class Server {
                 System.out.printf("\nSuccessfully established connection to '%s' on port %d as user '%s'!\n", databaseName, portNumber, user);
                 break;
             } catch (SQLException e) {
-                System.out.println("[!] Error found:\n" + e);
+                System.out.println("[!] Error found when attempting to establish connection:\n" + e);
 
                 System.out.print("""
                         [1] Try again.
@@ -52,14 +53,38 @@ public class Server {
                         //Do nothing, loop will continue.
                     }
                     case 0 -> {
-                        //Close input as a new server
+                        //Close input as a new server.
                         return false;
                     }
                 }
             }
         }
-        //After connection is established, prompt user if they would like to populate their database.
-        populateServer();
+
+        //After connection is established, server will check if tables are present, if not it will prompt the user to add tables.
+        if (!verifyTables()) populateServer();
+        return true;
+    }
+
+    /**
+     * Establishes connection to server. If the required tables are not present the user will be prompted to add tables.
+     * @param port Server port number.
+     * @param database Server database title.
+     * @param username Database username.
+     * @param password Password for user.
+     * @return Whether connection was established.
+     */
+    public boolean establishConnection(int port, String database, String username, String password){
+        //Create url.
+        String url = "jdbc:postgresql://localhost:%d/%s".formatted(port, database);
+        try {
+            connection = DriverManager.getConnection(url, username, password);
+            System.out.printf("[!] Successfully established connection to '%s' on port %d as user '%s'!\n", database, port, username);
+        } catch (SQLException e) {
+            System.out.println("[!] Error found when attempting to establish connection:\n" + e);
+            return false;
+        }
+        //After connection is established, server will check if tables are present, if not it will prompt the user to add tables.
+        if (!verifyTables()) populateServer();
         return true;
     }
     public boolean verifyConnection(){
@@ -80,11 +105,37 @@ public class Server {
             return false;
         }
     }
+    public boolean verifyTables(){
+        boolean result = false;
+        String sql = """
+                SELECT
+                  EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'cities') AS cities, --id 1
+                  EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'clients') AS clients,
+                  EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'properties') AS properties,
+                  EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'services') AS services,
+                  EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'states') AS states;""";
 
+        //Execute query and process results
+        ResultSet rs = performQuery(sql, "verify table existence");
+        if (rs == null) return false;
+        try {
+            //All tables must be present for result to be true.
+            rs.next();
+            result = (rs.getBoolean(1) &&
+                    rs.getBoolean(2) &&
+                    rs.getBoolean(3) &&
+                    rs.getBoolean(4) &&
+                    rs.getBoolean(5));
+            rs.close();
+        } catch (SQLException e) {
+            //Should not occur given ResultSet is not null.
+        }
+        return result;
+    }
     /**
      * Will perform a query [view] and return the ResultSet. Handles errors.
      * @param sql Query to perform.
-     * @param errorFrom Used in error message, to identify previous action.
+     * @param errorFrom Used in error message. Will be printed as "[!] Error occurred while attempting to {errorFrom}".
      * @return ResultSet of performed query, or null if error occurred.
      */
     public ResultSet performQuery(String sql, String errorFrom){
@@ -101,11 +152,48 @@ public class Server {
             System.out.printf("[!] Error occurred while attempting to %s:\n%s", errorFrom, e);
         }
         return rs;
+
+        /*
+        Boilerplate code for method use:
+        //Processing results.
+        ResultSet rs = performQuery();
+        if (rs == null) return;
+        try {
+            // CODE TO PROCESS RESULT SET.
+            rs.close();
+        } catch (SQLException e) {
+            //Should not occur given ResultSet is not null.
+        }
+         */
     }
-    //TODO
+
+    /**
+     * Will perform a query [insert, delete] and return whether the query was successful. Handles errors.
+     * @param sql Query to perform.
+     * @param errorFrom Used in error message. Will be printed as "[!] Error occurred while attempting to {errorFrom}".
+     * @return Query successful.
+     */
     public boolean performUpdate(String sql, String errorFrom){
-        //TODO
-        return false;
+        //Won't attempt if there is no connection
+        if (!verifyConnection()) return false;
+        boolean result = false;
+
+        try {
+            Statement st = connection.createStatement();
+            //If a value 'n' of one or more is returned, it means the query altered 'n' rows without error.
+            result = (st.executeUpdate(sql) >= 1);
+            st.close();
+        } catch (SQLException e) {
+            System.out.printf("[!] Error occurred while attempting to %s:\n%s", errorFrom, e);
+        }
+        return result;
+
+        /*
+        Boilerplate code for method use:
+        if (performUpdate()) {
+            //SUCCESS MESSAGE
+        }
+         */
     }
     /**
      * Will print n rows of the services table as standard, sorted by property, or sorted by date.
@@ -203,18 +291,26 @@ public class Server {
             //Should not occur given ResultSet is not null.
         }
     }
-    //TODO
-    public void addService(int propertyID, LocalDate serviceDate, boolean[] servicesDone, double serviceCost, String notes, boolean confirm){
-        if (!verifyConnection()) return;
 
+    /**
+     * Will insert a new service entry into the services table.
+     * @param propertyID ID of property used in service.
+     * @param serviceDate Service date.
+     * @param servicesDone A list with values for each service performed: [mow, leaf blow, seed, fertilizer, mulch,
+     *                     tree removal, tree trim, power wash, snow plow].
+     * @param serviceCost Cost of service.
+     * @param notes Notes for services. A value of "" should be used when there are no notes.
+     * @param confirm Whether to confirm the service before performing query. Will print the service card to display.
+     */
+    public void addService(int propertyID, LocalDate serviceDate, boolean[] servicesDone, double serviceCost, String notes, boolean confirm){
+        //If notes is empty, we will put null as the value for the table.
         if (notes.length() == 0) {
             notes = "null";
         } else {
             notes = "'" + notes + "'";
         }
 
-        if (servicesDone.length != 9) return;//TODO error
-
+        //Inserting fields into SQL query.
         String sql = """
                 INSERT INTO services (property_id, service_date, service_cost,
                 					 mow, leaf_blow, seed,
@@ -222,7 +318,7 @@ public class Server {
                 					 trim_tree, power_wash, snow_plow,
                 					 notes)
                 VALUES
-                	(%d, %tF, %f,
+                	(%d, '%tF', %f,
                 	%b, %b, %b,
                 	%b, %b, %b,
                 	%b, %b, %b,
@@ -242,35 +338,54 @@ public class Server {
                         notes
                 );
 
+        //Displays and prompts user to confirm service addition, if applicable.
         if (confirm) {
+            ArrayList<String> boolWords = new ArrayList<>();
+            for (int i=0; i <= 8; i++){
+                boolWords.add(servicesDone[i] ? "YES" : "NO ");
+            }
+
             System.out.printf("""
+                     
                      SERVICE AT PROPERTY ID#%d ON %tF
-                     MOW..........%b |   LEAF BLOW....%b |   SEED...........%b
-                     FERTILIZER...%b |   MULCH........%b |   TREE REMOVAL...%b
-                     TREE TRIM....%b |   POWER WASH...%b |   SNOW PLOW......%b
+                     MOW..........%s |   LEAF BLOW....%s |   SEED...........%s
+                     FERTILIZER...%s |   MULCH........%s |   TREE REMOVAL...%s
+                     TREE TRIM....%s |   POWER WASH...%s |   SNOW PLOW......%s
                      NOTES: %s
                      COST......................$%.2f
+                     
                      """,
                     propertyID,
                     serviceDate,
-                    servicesDone[0],
-                    servicesDone[1],
-                    servicesDone[2],
-                    servicesDone[3],
-                    servicesDone[4],
-                    servicesDone[5],
-                    servicesDone[6],
-                    servicesDone[7],
-                    servicesDone[8],
+                    boolWords.get(0),
+                    boolWords.get(1),
+                    boolWords.get(2),
+                    boolWords.get(3),
+                    boolWords.get(4),
+                    boolWords.get(5),
+                    boolWords.get(6),
+                    boolWords.get(7),
+                    boolWords.get(8),
                     notes,
                     serviceCost);
             System.out.print("""
-                    Would you like to add this service to the services table?
+                    Would you like to add this service to the services table?:
                     
                     [1] Yes.
-                    [0] No.""");
+                    [0] No.
+                    
+                    input:""");
+            //If user selects 'no' exit method. Else continue and perform query.
+            if (Menu.collectInt(0, 1, input) == 0) {
+                System.out.println("[!] Service not added.");
+                return;
+            }
+        }
 
-            //TODO complete
+        if (performUpdate(sql, "add service")) {
+            System.out.println("[!] Successfully added service.");
+        } else {
+            System.out.println("[!] Error occurred. Service not added.");
         }
     }
 
@@ -347,6 +462,47 @@ public class Server {
             rs.close();
         } catch (SQLException e){
             //Should not occur if ResultSet is not null.
+        }
+    }
+
+    /**
+     * Will insert a new property entry into the properties table.
+     * @param clientID Client ID, owner of property.
+     * @param address Address of property, EX: 123 apple rd. To match format ensure all lowercase.
+     * @param cityID City ID.
+     * @param confirm Whether to confirm the property before performing query. Will print the property card to user.
+     */
+    public void addProperty(int clientID, String address, int cityID, boolean confirm){
+        String sql = """
+                INSERT INTO properties (client_id, address, city_id)
+                	VALUES (
+                	%d,
+                	'%s',
+                	%d
+                );""".formatted(clientID, address, cityID);
+
+        //Will display property card to user and confirm if they will add the property.
+        if (confirm) {
+            System.out.printf("""
+                    [PROPERTY AT %s]
+                    OWNED BY CLIENT ID #%d
+                    ADDRESS IS IN CITY #%d
+                    
+                    Would you like to add this property to the properties tables?
+                    
+                    [1] Yes.
+                    [0] No.
+                    
+                    input:""", address, clientID, cityID);
+            int choice = Menu.collectInt(0, 1, input);
+            //If user decides no, do not add the property.
+            if (choice == 0) return;
+        }
+
+        if (performUpdate(sql, "add property")) {
+            System.out.println("[!] Successfully added property.");
+        } else {
+            System.out.println("[!] Error occurred. Property not added.");
         }
     }
 
@@ -492,6 +648,70 @@ public class Server {
         }
         return result;
     }
+    public boolean verifyState(String abbreviation){
+        boolean result = false;
+        String sql = """
+                SELECT EXISTS (
+                	SELECT 1
+                	FROM states
+                	WHERE states.abbreviation='%s'
+                );""".formatted(abbreviation);
+
+        //Processing results.
+        ResultSet rs = performQuery(sql, "verify state abbreviation");
+        if (rs == null) return false;
+        try {
+            rs.next();
+            result = rs.getBoolean(1);
+            rs.close();
+        } catch (SQLException e) {
+            //Should not occur given ResultSet is not null.
+        }
+        return result;
+    }
+    public boolean verifyClient(int id){
+        boolean result = false;
+        String sql = """
+                SELECT EXISTS (
+                	SELECT 1
+                	FROM clients
+                	WHERE clients.id=%d
+                );""".formatted(id);
+
+        //Processing results.
+        ResultSet rs = performQuery(sql, "verify client id");
+        if (rs == null) return false;
+        try {
+            rs.next();
+            result = rs.getBoolean(1);
+            rs.close();
+        } catch (SQLException e) {
+            //Should not occur given ResultSet is not null.
+        }
+        return result;
+    }
+    public boolean verifyCity(int id){
+        boolean result = false;
+        String sql = """
+                SELECT EXISTS (
+                	SELECT 1
+                	FROM cities
+                	WHERE cities.id=%d
+                );""".formatted(id);
+
+        //Processing results.
+        ResultSet rs = performQuery(sql, "verify city id");
+        if (rs == null) return false;
+        try {
+            rs.next();
+            result = rs.getBoolean(1);
+            rs.close();
+        } catch (SQLException e) {
+            //Should not occur given ResultSet is not null.
+        }
+        return result;
+    }
+
     //TODO may drop this method
     public String getProperty(int id){
         if (!verifyConnection() || !verifyProperty(id)) return "";
@@ -564,34 +784,29 @@ public class Server {
     private void populateServer(){
         int choice;
         System.out.print("""
-               [!] This program will not function as intended without the required tables.
-               If your database is not yet compatible, you must add tables.
+               [!] Required tables not found. The database must have the required tables to function properly.
                Sample data is recommended to view program functionality.
                What would you like to do?:
                
-               [2] Add tables.
-               [1] Add tables and sample data.
-               [0] Database compatible, continue.
+               [1] Add tables.
+               [0] Add tables and sample data.
                
                input:""");
-        choice = Menu.collectInt(0,2, input);
+        choice = Menu.collectInt(0,1, input);
         switch (choice) {
-            case 2 ->{
+            case 1 ->{
                 createTables();
                 insertStates();
             }
-            case 1 ->{
+            case 0 ->{
                 createTables();
                 insertStates();
                 insertSampleData();
             }
-            case 0 ->{
-                //Do nothing.
-            }
         }
     }
     private void createTables() {
-        Statement st = null;
+        //Table sql
         String sql = """
                 CREATE TABLE clients(
                 	id SERIAL PRIMARY KEY,
@@ -652,20 +867,15 @@ public class Server {
                 		ON DELETE SET NULL
                 		ON UPDATE CASCADE
                 );""";
-        try{
-            st = connection.createStatement();
-            st.executeUpdate(sql);
+
+        //Perform query.
+        if (performUpdate(sql, "create database tables")) {
             System.out.println("[!] Successfully created tables.");
-        } catch (SQLException e) {
-            System.out.println("[!] Error found when attempting to create database tables:\n" + e);
-        }
-        finally {
-            closeStatement(st);
         }
     }
     private void insertStates() {
-        Statement st = null;
         StringBuilder sql = new StringBuilder();
+        //List of all states to be used when populating.
         String[][] statesList = {
                 {"AL", "alabama"}, {"AK", "alaska"}, {"AZ", "arizona"}, {"AR", "arkansas"},
                 {"CA", "california"}, {"CO", "colorado"}, {"CT", "connecticut"}, {"DE", "delaware"}, {"FL", "florida"},
@@ -678,6 +888,8 @@ public class Server {
                 {"OR", "oregon"}, {"PA", "pennsylvania"}, {"RI", "rhode island"}, {"SC", "south carolina"},
                 {"SD", "south dakota"}, {"TN", "tennessee"}, {"TX", "texas"}, {"UT", "utah"}, {"VT", "vermont"},
                 {"VA", "virginia"}, {"WA", "washington"}, {"WV", "west virginia"}, {"WI", "wisconsin"}, {"WY", "wyoming"} };
+
+        //Creating a large SQL query containing all states.
         for (String[] strings : statesList) {
             sql.append("""
                         INSERT INTO states (abbreviation, name)
@@ -687,18 +899,14 @@ public class Server {
                         );
                         """.formatted(strings[0], strings[1]));
         }
-        try {
-            st = connection.createStatement();
-            st.executeUpdate(sql.toString());
+        String sqlString = sql.toString();
+
+        //Perform query.
+        if (performUpdate(sqlString, "populate states table")) {
             System.out.println("[!] Successfully populated states table with standard data.");
-        } catch (SQLException e) {
-            System.out.println("[!] Error found when attempting to populate the states table:\n" + e);
-        }finally {
-            closeStatement(st);
         }
     }
     private void insertSampleData(){
-        Statement st = null;
         String sql = """
                 INSERT INTO clients (first_name, last_name, phone, email)
                 VALUES
@@ -729,15 +937,10 @@ public class Server {
                 	true, false, false,
                 	false, false, false,
                 	null);""";
-        try {
-            st = connection.createStatement();
-            st.executeUpdate(sql);
+
+        //Perform query.
+        if (performUpdate(sql, "insert sample data")) {
             System.out.println("[!] Successfully inserted sample data to all tables.");
-        } catch (SQLException e) {
-            System.out.println("[!] An error occured while inserting sample data:\n" + e);
-        } finally {
-            closeStatement(st);
         }
     }
-
 }
