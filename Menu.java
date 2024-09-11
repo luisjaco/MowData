@@ -9,7 +9,15 @@ public class Menu {
     private Scanner input;
     private Server server;
     protected final static String mowdata = """
-    mowdata {replace with cool ascii}""";
+            ,---.    ,---.     ,-----.     .--.      .--.  ______         ____     ,---------.     ____
+            |    \\  /    |   .'  .-,  '.   |  |_     |  | |    _`''.   .'  __ `.\\ |          |  .'  __ `.
+            |  ,  \\/  ,  |  / ,-.|  \\ _ \\  | _( )_   |  | | _ | ) _  \\ /   '  \\  \\ `--.  ---'  /   '  \\  \\
+            |  |\\_   /|  | ;  \\  '_ /  | : |(_ o _)  |  | |( ''_'  ) | |___|  /  |    |   |    |___|  /  |
+            |  _( )_/ |  | |  _`,/ \\ _/  | | (_,_) \\ |  | | . (_) `. |    _.-`   |    :_ _:       _.-`   |
+            | (_ o _) |  | : (  '\\_/ \\   ; |  |/    \\|  | |(_    ._) | .'   _    |    (_I_)    .'   _    |
+            |  (_,_)  |  |  \\ `"/  \\  ) /  |  '  /\\  `  | |  (_.\\.'  / |  _( )_  |   (_(=)_)   |  _( )_  |
+            |  |      |  |   '. \\_/``".'   |    /  \\    | |       .'   \\ (_ o _) /    (_I_)    \\ (_ o _) /
+            '--'      '--'     '-----'     `---'    `---` '-----'`      '.(_,_).'     '---'     '.(_,_).'""";
     public Menu(){
         //Does nothing.
     }
@@ -306,18 +314,22 @@ public class Menu {
                 [VIEW CITIES]
                 Please choose an action:
                 
-                [2] View all.
-                [1] View sorted by state.
+                [3] View all.
+                [2] View sorted by state.
+                [1] View sorted by name.
                 [0] Return.
                 
                 input:""");
-        choice = collectInt(0,2);
+        choice = collectInt(0,3);
         switch (choice){
-            case 2 -> {
+            case 3 -> {
                 server.viewCities("all", promptForRowCount());
             }
-            case 1 -> {
+            case 2 -> {
                 server.viewCities("state", promptForRowCount());
+            }
+            case 1 -> {
+                server.viewCities("name", promptForRowCount());
             }
             case 0 -> {
                 //Do nothing. Return to mainMenu.
@@ -374,10 +386,10 @@ public class Menu {
                 addPropertyMenu();
             }
             case 2 -> {
-                //TODO
+                addCityMenu();
             }
             case 1 -> {
-                //TODO
+                addClientMenu();
             }
             case 0 -> {
                 //Do nothing. Return to mainMenu.
@@ -385,8 +397,6 @@ public class Menu {
         }
     }
     private void addServiceMenu(){
-        //Get property, if no property, prompt for property creation. first must verify if property exists.
-        int choice = 0;
         System.out.print("""
                 [ADD SERVICE]
                 [!] To add a service, you must input the following:
@@ -477,5 +487,99 @@ public class Menu {
         }
 
         server.addProperty(clientID, address, cityID, true);
+    }
+    private void addCityMenu(){
+        System.out.print("""
+                [ADD CITY]
+                [!] To add a city, you must input the following:
+                
+                1. CITY NAME
+                2. ZIP CODE
+                3. STATE
+                
+                Continue?
+                [1] Yes, begin.
+                [0] No, return.
+                
+                input:""");
+
+        //Prompt user.
+        if (collectInt(0, 1) == 0) return;
+
+        //Get city name.
+        System.out.print("1. Enter city name:");
+        String cityName = input.nextLine().toLowerCase();
+
+        //Get zip code.
+        System.out.print("2. Enter zip code:");
+        String zipCode = input.nextLine();
+        //Check zip code validity.
+        boolean isNumeric;
+        try {
+            Integer.parseInt(zipCode);
+            isNumeric = true;
+        } catch (NumberFormatException e){
+            isNumeric = false;
+        }
+        if ((zipCode.length() != 5) || !isNumeric) {
+            System.out.println("[!] Invalid zip code entered. Please try again.");
+            return;
+        }
+
+        //Get state.
+        System.out.print("3. Enter state (EX: NY):");
+        String state = input.nextLine();
+        //Validate state and retrieve state id.
+        if (!server.verifyState(state)) {
+            System.out.println("[!] Invalid state entered. Please try again.");
+            return;
+        }
+        int stateID = server.getStateID(state);
+
+        server.addCity(cityName, zipCode, stateID, true);
+    }
+    private void addClientMenu(){
+        System.out.print("""
+                [ADD CLIENT]
+                [!] To add a client, you must input the following:
+                1. FIRST NAME
+                2. LAST NAME
+                3. PHONE NUMBER
+                4. EMAIL
+                
+                Continue?
+                [1] Yes, begin.
+                [0] No, return.
+                
+                input:""");
+        //Prompt user.
+        if (collectInt(0, 1) == 0) return;
+
+        //Get first name.
+        System.out.print("1. Enter first name:");
+        String firstName = input.nextLine();
+        //Get last name.
+        System.out.print("2. Enter last name:");
+        String lastName = input.nextLine();
+        //Get phone number.
+        System.out.print("3. Enter phone number (EX: 123-456-7890):");
+        String phoneNumber = input.nextLine().replaceAll("-","");
+        //Verify phone number is valid.
+        boolean isNumeric;
+        try {
+            Long.parseLong(phoneNumber);
+            isNumeric = true;
+        } catch (NumberFormatException e){
+            isNumeric = false;
+        }
+        if ((phoneNumber.length() != 10) || !isNumeric) {
+            System.out.println("[!] Invalid phone number entered. Please try again.");
+            return;
+        }
+        //Get email.
+        System.out.print("4. Enter email:");
+        String email = input.nextLine();
+
+        server.addClient(firstName, lastName, phoneNumber, email, true);
     }
 }
