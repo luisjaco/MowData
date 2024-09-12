@@ -1,100 +1,40 @@
-import java.sql.*;
+package tools;
+
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Scanner;
+
 /**
- * The server class is used to handle and control all queries and actions regarding a MowData PostgreSQL server and database.
+ * The tools.MowDataDB class is a class to be used along with a connection. It can perform all queries related to a PostgreSQL database with the
+ * proper tables for a MowData database.
  */
-public class Server {
-    private Connection connection;
+public class MowDataDB {
+    private final Connection connection;
     private final Scanner input;
 
     /**
-     * Initializes a Server instance. A Server instance must run the establishConnection method to be functional.
+     * Initializes a new tools.MowDataDB instance. When initialized, MowData database tables will be queried and validated. If proper
+     * tables aren't present, the user will be prompted to add the required tables.
+     * @param connection Connection to PostgreSQL server.
+     * @param input Scanner to be used for user input.
      */
-    public Server(){
-        this.input = new Scanner(System.in);
-    }
+    protected MowDataDB(Connection connection, Scanner input){
+        this.connection = connection;
+        this.input = input;
 
-    /**
-     * Establishes connection to server. Will prompt user for required values to establish connection. If the required tables are not
-     * present the user will be prompted to add tables.
-     * @return Whether connection was established.
-     */
-    public boolean establishConnection(){
-        //Retrieve inputs from user until user puts a valid connection or exits.
-        while (true){
-            try {
-                System.out.print("[1] Input the port number for your locally hosted server:");
-                int portNumber = Menu.collectInt(1024, 65535, input);
-                System.out.print("[2] Input the database name which you would like to access:");
-                String databaseName = input.nextLine();
-                String url = "jdbc:postgresql://localhost:%d/%s".formatted(portNumber, databaseName);
-
-                System.out.print("[3] Input the user you would like to access this database as:");
-                String user = input.nextLine();
-                System.out.print("[4] Input the password for this user:");
-                String password = input.nextLine();
-
-                connection = DriverManager.getConnection(url, user, password);
-                System.out.printf("\nSuccessfully established connection to '%s' on port %d as user '%s'!\n", databaseName, portNumber, user);
-                break;
-            } catch (SQLException e) {
-                System.out.println("[!] Error found when attempting to establish connection:\n" + e);
-
-                System.out.print("""
-                        [1] Try again.
-                        [0] Exit.
-                        
-                        input:""");
-                int choice = Menu.collectInt(0,1, input);
-                switch (choice){
-                    case 1 -> {
-                        //Do nothing, loop will continue.
-                    }
-                    case 0 -> {
-                        //Close input as a new server.
-                        return false;
-                    }
-                }
-            }
-        }
-
-        //After connection is established, server will check if tables are present, if not it will prompt the user to add tables.
+        //Once database connection from server is established, tables will be checked to ensure they are
+        //the proper tables for the MowData database.
         if (!verifyTables()) populateServer();
-        return true;
     }
 
-    /**
-     * Establishes connection to server. If the required tables are not present the user will be prompted to add tables.
-     * @param port Server port number.
-     * @param database Database title.
-     * @param username Database username.
-     * @param password Password for user.
-     * @return Whether connection was established.
-     */
-    public boolean establishConnection(int port, String database, String username, String password){
-        //Create url.
-        String url = "jdbc:postgresql://localhost:%d/%s".formatted(port, database);
-        try {
-            connection = DriverManager.getConnection(url, username, password);
-            System.out.printf("[!] Successfully established connection to '%s' on port %d as user '%s'!\n", database, port, username);
-        } catch (SQLException e) {
-            System.out.println("[!] Error found when attempting to establish connection:\n" + e);
-            return false;
-        }
-        //After connection is established, server will check if tables are present, if not it will prompt the user to add tables.
-        if (!verifyTables()) populateServer();
-        return true;
-    }
-
-    /**
-     * Verifies if all the standard tables are present. (clients, states, cities, properties, services).
-     * @return Whether standard tables are present.
-     */
     public boolean verifyConnection(){
         try {
             if (connection == null){
+                //Verify connection object exists.
                 System.out.println("[!] Connection is non-existent.");
                 return false;
             }
@@ -110,23 +50,7 @@ public class Server {
             return false;
         }
     }
-    public Connection getConnection() {
-        return connection;
-    }
-    public void closeConnection(){
-        try {
-            if (verifyConnection()){
-                connection.close();
-                System.out.println("[!] Connection closed.");
-            }
-        } catch (SQLException e) {
-            System.out.println("[!] An error occurred while attempting to close the connection:\n" + e);
-        }
-    }
 
-
-
-    //begin
     /**
      * Will perform a query [view] and return the ResultSet. Handles errors.
      * @param sql Query to perform.
@@ -232,15 +156,9 @@ public class Server {
                 ON cities.state_id = states.id""";
         //Adjusting SQL based on sortingMode.
         switch (sortingMode) {
-            case "all" -> {
-                sql += ";";
-            }
-            case "property" -> {
-                sql += "\nORDER BY properties.id ASC;";
-            }
-            case "date" -> {
-                sql += "\nORDER BY service_date DESC;";
-            }
+            case "all" -> sql += ";";
+            case "property" -> sql += "\nORDER BY properties.id ASC;";
+            case "date" -> sql += "\nORDER BY service_date DESC;";
             default -> {
                 System.out.println("Invalid sortingMode given. Defaulting to \"all\".");
                 sql += ";";
@@ -320,15 +238,9 @@ public class Server {
 
         //Changing SQL for sortingMode.
         switch (sortingMode){
-            case "all" -> {
-                sql += ";";
-            }
-            case "city" -> {
-                sql += "\nORDER BY city_id ASC;";
-            }
-            case "client" -> {
-                sql += "\nORDER BY client_id ASC;";
-            }
+            case "all" -> sql += ";";
+            case "city" -> sql += "\nORDER BY city_id ASC;";
+            case "client" -> sql += "\nORDER BY client_id ASC;";
             default -> {
                 System.out.println("Invalid sortingMode given. Defaulting to \"all\".");
                 sql += ";";
@@ -388,15 +300,9 @@ public class Server {
 
         //Adjusting SQL depending on sortingMode.
         switch (sortingMode){
-            case "all" -> {
-                sql += ";";
-            }
-            case "state" -> {
-                sql += "\nORDER BY state_id;";
-            }
-            case "name" -> {
-                sql += "\n ORDER BY cities.name ASC;";
-            }
+            case "all" -> sql += ";";
+            case "state" -> sql += "\nORDER BY state_id;";
+            case "name" -> sql += "\n ORDER BY cities.name ASC;";
             default -> {
                 System.out.println("Invalid sortingMode given, defaulting to \"all\".");
                 sql += ";";
@@ -442,12 +348,8 @@ public class Server {
 
         //Adjusting SQL for sortingMode.
         switch (sortingMode) {
-            case "all" -> {
-                sql += ";";
-            }
-            case "name" -> {
-                sql += "\nORDER BY first_name ASC, last_name ASC;";
-            }
+            case "all" -> sql += ";";
+            case "name" -> sql += "\nORDER BY first_name ASC, last_name ASC;";
             default -> {
                 System.out.println("[!] Invalid sortingMode given. Defaulting to \"all\".");
                 sql += ";";
@@ -848,7 +750,11 @@ public class Server {
         }
         return id;
     }
-    //end
+
+    /**
+     * Verifies if all the standard tables are present. (clients, states, cities, properties, services).
+     * @return Whether standard tables are present.
+     */
     public boolean verifyTables(){
         boolean result = false;
         String sql = """
@@ -876,6 +782,10 @@ public class Server {
         }
         return result;
     }
+
+    /**
+     * Will guide user through server population process. Prompts user whether to add solely tables or sample data as well.
+     */
     private void populateServer(){
         int choice;
         System.out.print("""
