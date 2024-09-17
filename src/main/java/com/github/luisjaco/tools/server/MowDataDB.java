@@ -1,4 +1,6 @@
-package tools;
+package com.github.luisjaco.tools.server;
+
+import com.github.luisjaco.tools.Menu;
 
 import java.sql.Connection;
 import java.sql.ResultSet;

@@ -1,6 +1,10 @@
-package tools;
+package com.github.luisjaco.tools.server;
 
-import java.sql.*;
+import com.github.luisjaco.tools.Menu;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.Scanner;
 /**
  * The tools.Server class handles establishing and closing a connection to a PostgreSQL server. For each connection you must make a new

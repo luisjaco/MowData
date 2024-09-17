@@ -1,4 +1,7 @@
-package tools;
+package com.github.luisjaco.tools;
+
+import com.github.luisjaco.tools.server.MowDataDB;
+import com.github.luisjaco.tools.server.Server;
 
 import java.time.DateTimeException;
 import java.time.LocalDate;
