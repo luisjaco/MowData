@@ -6,12 +6,14 @@ MowData is a backend Java program which is designed to query and update a local 
 > MowData requires a PostgreSQL database to be running while in use. Ensure the database is empty before first starting.
 * Once a database is established, the port number, database name, username, and password will be required.
 * To run MowData, initialize a `Menu` from the `tools` package in `Main.java` and use`menu.start()`. The `.start()` method can be used either with or without parameters. If there are no parameters, the user will be prompted for the parameters each time the program runs.
-* MowData will create the required tables in the database if they aren't present. It will also prompt the user if they would like sample data inserted.
+* MowData will create the required tables in the database if they aren't present. It will also prompt the user if they would like sample data inserted. The schema diagram can be viewed [here](https://dbdiagram.io/d/mowdata-66d0ffc6eef7e08f0e2d21bc).
 
 ## Usage
 
 ```java
-import tools.Menu;
+package com.github.luisjaco;
+
+import com.github.luisjaco.tools.Menu;
 
 public class Main {
     public static void main(String[] args) {
